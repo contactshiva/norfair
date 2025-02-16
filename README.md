@@ -146,6 +146,63 @@ for frame in video:
 
 The video and drawing tools use OpenCV frames, so they are compatible with most Python video code available online. The point tracking is based on [SORT](https://arxiv.org/abs/1602.00763) generalized to detections consisting of a dynamically changing number of points per detection.
 
+## Customizable Parameters
+
+Norfair provides several customizable parameters that can be used to fine-tune the tracking process. Here is a list of the most important ones:
+
+1. `distance_function`: The function used to calculate the distance between detections and tracked objects. It can be a predefined distance function or a custom function defined by the user.
+2. `distance_threshold`: The maximum distance allowed for a detection to be considered a match with a tracked object.
+3. `hit_counter_max`: The maximum value for the hit counter, which tracks how often a tracked object is matched with a detection.
+4. `initialization_delay`: The number of frames a tracked object must be matched with a detection before it is considered initialized.
+5. `pointwise_hit_counter_max`: The maximum value for the pointwise hit counter, which tracks how often individual points in a tracked object are matched with detections.
+6. `detection_threshold`: The minimum score for a detection to be considered valid.
+7. `filter_factory`: The factory used to create the filter for the tracked objects. It can be a predefined filter or a custom filter defined by the user.
+8. `past_detections_length`: The number of past detections to store for each tracked object.
+9. `reid_distance_function`: The function used to calculate the distance between tracked objects for re-identification purposes.
+10. `reid_distance_threshold`: The maximum distance allowed for a tracked object to be considered a match with another tracked object for re-identification purposes.
+11. `reid_hit_counter_max`: The maximum value for the re-identification hit counter, which tracks how often a tracked object is matched with another tracked object for re-identification purposes.
+
+## Example Usage
+
+Here is an example of how to use some of the customizable parameters in Norfair:
+
+```python
+import cv2
+import numpy as np
+from detectron2.config import get_cfg
+from detectron2.engine import DefaultPredictor
+
+from norfair import Detection, Tracker, Video, draw_tracked_objects
+
+# Set up Detectron2 object detector
+cfg = get_cfg()
+cfg.merge_from_file("demos/faster_rcnn_R_50_FPN_3x.yaml")
+cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5
+cfg.MODEL.WEIGHTS = "detectron2://COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl"
+detector = DefaultPredictor(cfg)
+
+# Norfair
+video = Video(input_path="video.mp4")
+tracker = Tracker(
+    distance_function="euclidean",
+    distance_threshold=20,
+    hit_counter_max=10,
+    initialization_delay=5,
+    pointwise_hit_counter_max=3,
+    detection_threshold=0.5,
+    past_detections_length=5,
+)
+
+for frame in video:
+    detections = detector(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    detections = [Detection(p) for p in detections['instances'].pred_boxes.get_centers().cpu().numpy()]
+    tracked_objects = tracker.update(detections=detections)
+    draw_tracked_objects(frame, tracked_objects)
+    video.write(frame)
+```
+
+In this example, we set the `distance_function` to "euclidean", the `distance_threshold` to 20, the `hit_counter_max` to 10, the `initialization_delay` to 5, the `pointwise_hit_counter_max` to 3, the `detection_threshold` to 0.5, and the `past_detections_length` to 5. These parameters can be adjusted to fine-tune the tracking process according to the specific requirements of your application.
+
 ## Motivation
 
 Trying out the latest state-of-the-art detectors normally requires running repositories that weren't intended to be easy to use. These tend to be repositories associated with a research paper describing a novel new way of doing detection, and they are therefore intended to be run as a one-off evaluation script to get some result metric to publish on a particular research paper. This explains why they tend to not be easy to run as inference scripts, or why extracting the core model to use in another standalone script isn't always trivial.
